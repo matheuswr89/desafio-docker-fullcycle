@@ -1,0 +1,54 @@
+version: '3'
+
+networks:
+  interna:
+  
+services:
+  root_db: 
+    environment: 
+      MYSQL_DATABASE: db
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_USER: db
+    image: mysql:latest
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    volumes:
+      - ./mysql/:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - interna
+    healthcheck: 
+      retries: 10
+      test: 
+        - CMD
+        - mysqladmin
+        - ping
+        - "-h"
+        - localhost
+      timeout: 20s
+
+  node:
+    image: node
+    volumes: 
+      - ./node/:/app
+    working_dir: "/app"
+    command: bash -c "npm i && node index.js"
+    networks:
+      - interna
+    depends_on: 
+      root_db: 
+        condition: service_healthy
+
+  nginx:
+    image: nginx
+    networks:
+      - interna
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - 8080:80
+    depends_on:
+      - node
+
+    
